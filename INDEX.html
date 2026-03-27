@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <title>PFPS & LNCS & DMCS 통합 시스템</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap');
+    
+    body { font-family: 'Noto Sans KR', sans-serif; background-color: #f3f4f6; } 
+    h1, h2, h3, button, .lotto-ball, .student-tag, .slot-item { font-family: 'Jua', sans-serif; }
+
+    /* MK.54 애니메이션 스타일 */
+    .lotto-ball {
+      width: 140px; height: 140px; border-radius: 50%;
+      background: linear-gradient(135deg, #ff5252 0%, #b71c1c 100%);
+      border: 8px solid white;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+      color: white; font-size: 4.5em; font-weight: 900;
+      display: flex; justify-content: center; align-items: center;
+      transition: all 0.3s ease; margin: 0 auto;
+    }
+    .lotto-ball.spinning { animation: spin 0.1s infinite linear; background: #4CAF50; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    .student-tag { 
+        display: inline-block; 
+        background: linear-gradient(to right, #4facfe 0%, #00f2fe 100%);
+        color: white; padding: 10px 20px; border-radius: 50px; margin: 8px; 
+        font-size: 1.5em; font-weight: 700; 
+        box-shadow: 0 4px 15px rgba(0, 100, 255, 0.3);
+        animation: bounceIn 0.5s forwards; 
+    }
+    @keyframes bounceIn { 0% { opacity: 0; transform: scale(0.3); } 50% { opacity: 1; transform: scale(1.1); } 100% { opacity: 1; transform: scale(1); } }
+    
+    .slot-item {
+        background-color: #FFEBEE; color: #333;
+        font-size: 1.5em; font-weight: bold; min-width: 60px;
+        display: inline-block; text-align: center;
+        padding: 5px; margin: 5px; border-radius: 4px;
+    }
+
+    /* 이펙트 컨테이너 */
+    #backgroundEffect { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; overflow: hidden; }
+    .name-firework { position: absolute; white-space: nowrap; font-weight: 900; opacity: 0; z-index: 101; font-family: 'Jua'; text-shadow: 0 0 5px currentColor; }
+    
+    @keyframes namePop {
+        0% { opacity: 0; transform: translate(var(--start-x), var(--start-y)) scale(0.5); }
+        10% { opacity: 1; }
+        100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(var(--s)); }
+    }
+    @keyframes explode {
+        0% { opacity: 0; transform: scale(0.1); }
+        20% { opacity: 1; transform: scale(1); }
+        100% { opacity: 0; transform: scale(0.5); }
+    }
+    @keyframes pulse-light {
+        0% { box-shadow: 0 0 10px #fff; }
+        100% { box-shadow: 0 0 30px #fff; }
+    }
+
+    /* 체크박스 커스텀 */
+    .student-checkbox:checked + div { background-color: #dbeafe; border-color: #3b82f6; }
+    .student-checkbox:checked + div .check-icon { display: block; }
+  </style>
+</head>
+<body class="min-h-screen select-none">
+
+  <div id="backgroundEffect"></div>
+
+  <div id="loading-spinner" class="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-[9999] hidden backdrop-blur-sm">
+    <div class="flex flex-col items-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-white mb-4"></div>
+        <p class="text-white text-xl font-bold animate-pulse">처리 중...</p>
+    </div>
+  </div>
+  <div id="message-container" class="fixed top-10 left-0 right-0 z-[9999] flex justify-center pointer-events-none"></div>
+
+  <div id="app-container" class="max-w-xl mx-auto min-h-screen bg-white shadow-2xl overflow-hidden relative z-10">
+    
+    <header class="bg-blue-600 p-6 text-center text-white rounded-b-3xl shadow-lg mb-6">
+        <h1 class="text-3xl font-black tracking-wider">PFPS & LNCS & DMCS</h1>
+        <p class="text-blue-200 text-sm mt-1 opacity-80">통합 학급 관리 시스템</p>
+    </header>
+
+    <div id="view-home" class="view-section px-6 space-y-4 pb-10">
+      <button onclick="navigate('status')" class="w-full py-6 text-2xl font-black text-white bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 rounded-2xl shadow-lg transform transition active:scale-95 flex items-center justify-center gap-2">
+         📊 실시간 현황판
+      </button>
+
+      <div class="grid grid-cols-1 gap-4 mt-6">
+          <button onclick="showLoginModal('PFPS')" class="py-5 text-xl font-bold text-blue-600 bg-white border-2 border-blue-100 rounded-xl shadow-sm hover:bg-blue-50 flex items-center justify-center gap-2 transition">
+            <span class="text-2xl">👑</span> PFPS 담당자
+          </button>
+          <button onclick="showLoginModal('LNCS')" class="py-5 text-xl font-bold text-purple-600 bg-white border-2 border-purple-100 rounded-xl shadow-sm hover:bg-purple-50 flex items-center justify-center gap-2 transition">
+            <span class="text-2xl">🔗</span> LNCS 담당자
+          </button>
+          <button onclick="navigate('dmcs-public')" class="py-5 text-xl font-bold text-green-600 bg-white border-2 border-green-100 rounded-xl shadow-sm hover:bg-green-50 flex items-center justify-center gap-2 transition">
+            <span class="text-2xl">🧮</span> DMCS 수학 뽑기
+          </button>
+      </div>
+      <div class="text-center text-gray-400 mt-10 text-xs">Designed by 잘생긴 태혁샘</div>
+    </div>
+
+    <div id="view-status" class="view-section hidden px-4 pb-10">
+      <h2 class="text-2xl font-bold text-center mb-6 text-gray-700">학급 현황</h2>
+      <div class="flex gap-2 mb-6">
+        <button id="tab-btn-pfps" onclick="switchStatusTab('pfps')" class="flex-1 py-3 text-lg font-bold rounded-xl bg-blue-500 text-white">PFPS 면제권</button>
+        <button id="tab-btn-lncs" onclick="switchStatusTab('lncs')" class="flex-1 py-3 text-lg font-bold rounded-xl bg-gray-100 text-gray-500">LNCS 포인트</button>
+      </div>
+      <div id="status-content-pfps"><div id="status-table-container"></div></div>
+      <div id="status-content-lncs" class="hidden"><div id="lncs-public-table-container"></div></div>
+      <button onclick="navigate('home')" class="w-full py-4 mt-6 text-xl font-bold text-white bg-gray-400 rounded-xl">🏠 홈으로</button>
+    </div>
+
+    <div id="view-pfps-admin" class="view-section hidden px-4 pb-10">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-blue-600">👑 PFPS 관리</h2>
+        <span id="pfps-admin-welcome" class="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-bold"></span>
+      </div>
+      
+      <div class="mb-4 border-b border-gray-200">
+        <ul class="flex flex-wrap -mb-px text-sm font-medium text-center">
+            <li class="mr-2"><button class="inline-block p-4 text-blue-600 border-b-2 border-blue-600 rounded-t-lg active" onclick="showPfpsSubTab('grant')">부여/사용</button></li>
+            <li class="mr-2"><button class="inline-block p-4 text-gray-500 hover:text-gray-600 hover:border-gray-300 rounded-t-lg" onclick="showPfpsSubTab('admin')">담당자 관리</button></li>
+        </ul>
+      </div>
+
+      <div id="pfps-tab-grant">
+          <div class="bg-white p-4 rounded-xl shadow border border-blue-100 mb-4">
+            <h3 class="font-bold text-blue-800 mb-2">➕ 면제권 부여</h3>
+            <input type="text" id="grant-date" class="w-full p-2 border rounded mb-2 text-center font-bold" placeholder="날짜 (MM.DD)">
+            <div class="flex gap-2">
+                <button onclick="processGrant('all')" class="flex-1 py-2 bg-blue-500 text-white rounded font-bold">전체 부여</button>
+                <button onclick="toggleIndividualGrant()" class="flex-1 py-2 bg-indigo-500 text-white rounded font-bold">개별 부여</button>
+            </div>
+            <div id="individual-grant-list" class="hidden mt-2 border p-2 rounded max-h-40 overflow-y-auto grid grid-cols-2 gap-2"></div>
+            <button onclick="processGrant('individual')" id="btn-indiv-grant" class="hidden w-full mt-2 py-2 bg-green-500 text-white rounded font-bold">선택 부여</button>
+          </div>
+
+          <div class="bg-white p-4 rounded-xl shadow border border-red-100 mb-4">
+            <h3 class="font-bold text-red-800 mb-2">➖ 면제권 사용</h3>
+            <div id="use-student-list-container" class="max-h-48 overflow-y-auto border p-1 rounded mb-2"></div>
+            <button onclick="processUse()" class="w-full py-3 bg-red-500 text-white rounded font-bold">사용 처리</button>
+          </div>
+      </div>
+
+      <div id="pfps-tab-admin" class="hidden">
+          <div class="bg-white p-4 rounded-xl shadow border border-gray-200">
+              <h3 class="font-bold text-gray-700 mb-2">👤 담당자 관리</h3>
+              <div class="flex gap-2 mb-2">
+                  <input type="text" id="new-pfps-admin-name" placeholder="이름" class="w-1/2 p-2 border rounded">
+                  <input type="text" id="new-pfps-admin-pass" placeholder="비번" class="w-1/2 p-2 border rounded">
+              </div>
+              <button onclick="addAdmin('PFPS')" class="w-full py-2 bg-green-500 text-white rounded font-bold mb-4">담당자 추가</button>
+              <ul id="pfps-admin-list" class="space-y-2"></ul>
+          </div>
+      </div>
+      
+      <button onclick="navigate('home')" class="w-full py-3 text-gray-500 font-bold mt-4">🚪 로그아웃</button>
+    </div>
+
+    <div id="view-lncs-admin" class="view-section hidden px-4 pb-10">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold text-purple-600">🔗 LNCS 관리</h2>
+            <span id="lncs-admin-welcome" class="text-sm bg-purple-100 text-purple-800 px-3 py-1 rounded-full font-bold"></span>
+        </div>
+        <div class="mb-4 border-b border-gray-200">
+            <ul class="flex flex-wrap -mb-px text-sm font-medium text-center">
+                <li class="mr-2"><button class="inline-block p-4 text-purple-600 border-b-2 border-purple-600 rounded-t-lg active" onclick="showLncsSubTab('score')">점수 부여</button></li>
+                <li class="mr-2"><button class="inline-block p-4 text-purple-500 hover:text-purple-700" onclick="showLncsSubTab('exchange')">포인트 교환</button></li>
+                <li class="mr-2"><button class="inline-block p-4 text-gray-500 hover:text-gray-600" onclick="showLncsSubTab('admin')">담당자 관리</button></li>
+            </ul>
+        </div>
+        
+        <div id="lncs-tab-score">
+             <div class="bg-white p-4 rounded-xl shadow border border-purple-100 mb-4">
+                 <div class="flex justify-between items-center mb-2">
+                     <h3 class="font-bold text-purple-800">✅ 점수 체크리스트</h3>
+                     <input type="text" id="lncs-check-date" class="w-32 p-1 border rounded text-center text-sm font-bold" readonly>
+                 </div>
+                 <div class="flex justify-end mb-2 text-sm text-gray-500">
+                     <button onclick="toggleAllLncs(true)" class="mr-2 hover:text-purple-600">전체 선택</button> | 
+                     <button onclick="toggleAllLncs(false)" class="ml-2 hover:text-purple-600">전체 해제</button>
+                 </div>
+                 <div id="lncs-checklist-container" class="max-h-[400px] overflow-y-auto grid grid-cols-2 gap-2 mb-4"></div>
+                 <div class="grid grid-cols-2 gap-2">
+                     <button onclick="saveLNCSScoresBulk(3)" class="py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl shadow">3점 부여</button>
+                     <button onclick="saveLNCSScoresBulk(1)" class="py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-xl shadow">1점 부여</button>
+                 </div>
+                 <button onclick="saveLNCSScoresBulk(0)" class="w-full mt-2 py-2 bg-red-400 hover:bg-red-500 text-white font-bold rounded-xl text-sm">선택 0점 처리</button>
+            </div>
+        </div>
+
+        <div id="lncs-tab-exchange" class="hidden">
+            <div class="bg-white p-4 rounded-xl shadow border border-purple-200">
+                <h3 class="font-bold text-purple-800 mb-3">🔄 포인트 교환 (60점 ➡ 1개)</h3>
+                <p class="text-xs text-gray-500 mb-3">60점 이상인 학생만 활성화됩니다.</p>
+                <div id="lncs-exchange-container" class="space-y-2 max-h-[400px] overflow-y-auto"></div>
+            </div>
+        </div>
+
+        <div id="lncs-tab-admin" class="hidden">
+            <div class="bg-white p-4 rounded-xl shadow border border-gray-200">
+                <h3 class="font-bold text-gray-700 mb-2">👤 담당자 관리</h3>
+                <div class="flex gap-2 mb-2">
+                    <input type="text" id="new-lncs-admin-name" placeholder="이름" class="w-1/2 p-2 border rounded">
+                    <input type="text" id="new-lncs-admin-pass" placeholder="비번" class="w-1/2 p-2 border rounded">
+                </div>
+                <button onclick="addAdmin('LNCS')" class="w-full py-2 bg-green-500 text-white rounded font-bold mb-4">담당자 추가</button>
+                <ul id="lncs-admin-list" class="space-y-2"></ul>
+            </div>
+        </div>
+
+        <button onclick="navigate('home')" class="w-full py-3 text-gray-500 font-bold mt-4">🚪 로그아웃</button>
+    </div>
+
+    <div id="view-dmcs-public" class="view-section hidden px-4 pb-10">
+        <h2 class="text-3xl font-black text-center text-green-600 mb-6">🧮 수학 문제 뽑기</h2>
+        <div class="bg-white p-6 rounded-3xl shadow-xl border-b-8 border-green-500 mb-8 text-center relative overflow-hidden">
+            <div id="step1-area" class="relative z-10">
+                <h3 class="text-lg font-bold text-gray-500 mb-4">STEP 1. 운명의 숫자</h3>
+                <div class="flex justify-center mb-8 scale-110">
+                    <div id="lottoBall" class="lotto-ball">?</div>
+                </div>
+                <button onclick="runLotto()" id="btnLotto" class="w-full py-4 text-2xl font-black text-white bg-green-500 hover:bg-green-600 rounded-2xl shadow-lg transform transition active:scale-95">🎱 번호 추첨</button>
+                <div id="msgExemption" class="hidden text-3xl font-black text-red-500 mt-4 animate-bounce">🎉 대박! 전원 면제! 🎉</div>
+            </div>
+            <div id="step2-area" style="display:none;" class="mt-8 border-t-2 border-dashed border-gray-200 pt-6">
+                <h3 class="text-lg font-bold text-blue-600 mb-4">STEP 2. <span id="targetCount" class="text-2xl font-black">0</span>명 추첨</h3>
+                <p class="mb-2 text-gray-500">오늘의 숙제 대상 학생 명단입니다.</p>
+                <button id="btnRoulette" onclick="runRoulette()" class="w-full py-4 text-2xl font-black text-white bg-blue-500 hover:bg-blue-600 rounded-2xl shadow-lg mb-4">🎰 학생 룰렛 돌리기!</button>
+                <div id="rouletteResult" class="min-h-[120px] p-4 bg-blue-50 rounded-xl flex flex-wrap justify-center content-center gap-2 shadow-inner"></div>
+            </div>
+        </div>
+        <div class="bg-white p-5 rounded-2xl shadow-md h-[400px]">
+            <h3 class="text-lg font-bold text-gray-600 mb-2 ml-2">📊 누적 당첨 현황</h3>
+            <div id="chart_div" class="w-full h-full"></div>
+        </div>
+        <button onclick="navigate('home')" class="w-full py-4 mt-8 text-lg font-bold text-gray-500 bg-gray-200 rounded-xl">🚪 홈으로 나가기</button>
+    </div>
+  </div>
+
+  <div id="login-modal" class="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 hidden backdrop-blur-sm px-4">
+    <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm">
+      <h3 id="login-modal-title" class="text-2xl font-black mb-6 text-center text-gray-800">🔑 로그인</h3>
+      <input type="text" id="login-name" class="w-full p-4 border-2 border-gray-200 rounded-xl mb-3 text-lg font-bold" placeholder="이름">
+      <input type="password" id="login-password" class="w-full p-4 border-2 border-gray-200 rounded-xl mb-6 text-lg font-bold" placeholder="비밀번호">
+      <input type="hidden" id="login-system">
+      <button onclick="handleLoginAttempt()" class="w-full py-4 text-xl font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg mb-3">로그인</button>
+      <button onclick="hideLoginModal()" class="w-full py-3 text-gray-400 font-bold">닫기</button>
+    </div>
+  </div>
+
+<script>
+  let currentUser = null;
+  const todayDate = new Date().toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }).replace(/\./g, '').replace(/ /g, '.');
+  let dmcsData = { finalX: 0, count: 0, students: [], allStudents: [] };
+  const backgroundEffectDiv = document.getElementById('backgroundEffect');
+  let isExemptionMode = false;
+
+  // ==========================================
+  // GAS API 통신 모듈 (google.script.run 대체)
+  // ==========================================
+  const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxrvXlJ_QsTRfjEJph19xzd0S0Ymu52JYnceJxOgLoN6yD9fWHVkCb-t8PciP4Neu7Raw/exec";
+
+  async function fetchGas(action, ...args) {
+    try {
+      const response = await fetch(GAS_API_URL, {
+        method: 'POST',
+        // CORS Preflight 에러를 피하기 위해 text/plain을 사용합니다.
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: action, args: args })
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('API Error:', error);
+      showMessage('error', '서버 통신 중 오류가 발생했습니다.');
+      throw error;
+    }
+  }
+
+  // Utility
+  function showSpinner() { document.getElementById('loading-spinner').classList.remove('hidden'); }
+  function hideSpinner() { document.getElementById('loading-spinner').classList.add('hidden'); }
+  function showMessage(type, content) {
+    const container = document.getElementById('message-container');
+    const color = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+    const msg = document.createElement('div');
+    msg.className = `${color} text-white px-6 py-3 rounded-full shadow-2xl font-bold mb-3 animate-bounce`;
+    msg.innerText = content;
+    container.appendChild(msg);
+    setTimeout(() => msg.remove(), 3000);
+  }
+
+  function navigate(view) {
+    document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+    document.getElementById('login-modal').classList.add('hidden');
+    document.getElementById(`view-${view}`).classList.remove('hidden');
+    if (view === 'status') { switchStatusTab('pfps'); loadAllStatusData(); }
+    else if (view === 'pfps-admin') loadPFPSAdminData();
+    else if (view === 'lncs-admin') loadLNCSData();
+    else if (view === 'dmcs-public') initOldDMCS();
+  }
+
+  // --- DMCS Animation ---
+  function triggerFireworks(duration = 5000) {
+      const numBurstsPerSec = 30;
+      const totalBursts = Math.ceil(duration / 1000) * numBurstsPerSec * 0.5;
+      const burstInterval = duration / totalBursts;
+      let burstCount = 0;
+      const burstTimer = setInterval(() => {
+          if (burstCount >= totalBursts) { clearInterval(burstTimer); return; }
+          const firework = document.createElement('div');
+          firework.style.cssText = `position: absolute; width: 8px; height: 8px; border-radius: 50%; background-color: hsl(${Math.random() * 360}, 100%, 70%); top: ${Math.random() * 100}vh; left: ${Math.random() * 100}vw; box-shadow: 0 0 10px #fff; opacity: 0; animation: explode 2s ease-out forwards, pulse-light 0.5s infinite alternate; z-index: 101;`;
+          backgroundEffectDiv.appendChild(firework);
+          setTimeout(() => firework.remove(), 2000);
+          burstCount++;
+      }, burstInterval);
+      setTimeout(() => clearInterval(burstTimer), duration);
+  }
+  let nameEffectInterval;
+  function startNameFirework(singlePhrase = null, duration = 5000) {
+      clearInterval(nameEffectInterval);
+      backgroundEffectDiv.querySelectorAll('.name-firework').forEach(el => el.remove());
+      let phrases = singlePhrase ? [singlePhrase] : (dmcsData.allStudents.length > 0 ? dmcsData.allStudents.map(s => s.name) : ['태혁샘', '멋쟁이']);
+      let startTime = Date.now();
+      let animDuration = singlePhrase ? 1500 : 1000;
+      nameEffectInterval = setInterval(() => {
+          if (Date.now() - startTime > duration && !singlePhrase) { clearInterval(nameEffectInterval); return; }
+          const phrase = phrases[Math.floor(Math.random() * phrases.length)];
+          const el = document.createElement('div');
+          el.className = 'name-firework';
+          el.innerText = phrase;
+          el.style.color = `hsl(${Math.random() * 360}, 100%, 70%)`;
+          el.style.fontSize = `${Math.random() * 1.5 + 1.5}em`;
+          el.style.setProperty('--start-x', (40 + Math.random() * 20) + 'vw');
+          el.style.setProperty('--start-y', (40 + Math.random() * 20) + 'vh');
+          el.style.setProperty('--tx', (Math.random() * 100) + 'vw');
+          el.style.setProperty('--ty', (Math.random() * 100) + 'vh');
+          el.style.setProperty('--s', Math.random() + 1);
+          el.style.animation = `namePop ${animDuration}ms ease-out forwards`;
+          backgroundEffectDiv.appendChild(el);
+          setTimeout(() => el.remove(), animDuration);
+      }, 50);
+  }
+  function stopNameFirework() { clearInterval(nameEffectInterval); backgroundEffectDiv.querySelectorAll('.name-firework').forEach(el => el.remove()); }
+  function startExemptionEffect() { isExemptionMode = true; startNameFirework("전원 면제!", 5000); triggerFireworks(5000); setTimeout(() => { isExemptionMode = false; stopNameFirework(); }, 5000); }
+  function animateStudentSlot(container, student, duration = 2000) {
+      return new Promise(resolve => {
+          const slot = document.createElement('span'); slot.className = 'slot-item'; container.appendChild(slot);
+          startNameFirework(null, duration); 
+          const startTime = Date.now();
+          const interval = setInterval(() => {
+              if (Date.now() - startTime < duration) { const r = dmcsData.allStudents[Math.floor(Math.random() * dmcsData.allStudents.length)]; if(r) slot.innerText = `${r.number}번 ${r.name}`; } 
+              else { clearInterval(interval); stopNameFirework(); slot.className = 'student-tag'; slot.innerText = `${student.number}번 ${student.name}`; startNameFirework(student.name, 1500); setTimeout(() => resolve(), 1000); }
+          }, 80);
+      });
+  }
+
+  // --- DMCS Logic ---
+  function initOldDMCS() {
+      google.charts.load('current', {'packages':['corechart']});
+      google.charts.setOnLoadCallback(drawDmcsChart);
+      document.getElementById('step1-area').style.display = 'block';
+      document.getElementById('step2-area').style.display = 'none';
+      document.getElementById('msgExemption').classList.add('hidden');
+      const ball = document.getElementById('lottoBall');
+      ball.innerText = '?'; ball.classList.remove('spinning');
+      document.getElementById('btnLotto').disabled = false;
+      document.getElementById('rouletteResult').innerHTML = '';
+      
+      fetchGas('lncs_getStudentListForCheck').then(list => { dmcsData.allStudents = list; });
+  }
+  
+  function runLotto() {
+      const ball = document.getElementById('lottoBall');
+      const btn = document.getElementById('btnLotto');
+      btn.disabled = true; ball.classList.add('spinning'); ball.innerText = '';
+      
+      fetchGas('dmcs_runFirstPick').then(res => {
+          dmcsData.finalX = res.finalX; dmcsData.count = res.numStudents;
+          let duration = 3000; let startTime = Date.now();
+          let interval = setInterval(() => {
+             if(Date.now() - startTime < duration) { ball.innerText = Math.floor(Math.random()*19)+1; } 
+             else { 
+                 clearInterval(interval); ball.classList.remove('spinning'); ball.innerText = res.finalX === 'JACKPOT' ? '★' : res.finalX; btn.disabled = false;
+                 if (res.effect === 'firework_exemption') { document.getElementById('msgExemption').classList.remove('hidden'); startExemptionEffect(); } 
+                 else { document.getElementById('targetCount').innerText = res.numStudents; document.getElementById('step2-area').style.display = 'block'; }
+             }
+          }, 80);
+      });
+  }
+  
+  function runRoulette() {
+      const btn = document.getElementById('btnRoulette'); const resultArea = document.getElementById('rouletteResult');
+      btn.disabled = true; resultArea.innerHTML = '';
+      
+      fetchGas('dmcs_runSecondPick', dmcsData.count).then(async res => {
+          for (const student of res.students) { await animateStudentSlot(resultArea, student, 2000); }
+          stopNameFirework(); triggerFireworks(2000);
+          const finalMsg = document.createElement('div'); finalMsg.className = 'w-full text-center text-green-600 font-bold text-2xl mt-4 animate-bounce'; finalMsg.innerText = `🎉 총 ${res.students.length}명 선정 완료!`;
+          resultArea.appendChild(finalMsg); btn.disabled = false; drawDmcsChart();
+      });
+  }
+  
+  function drawDmcsChart() {
+      fetchGas('dmcs_getChartData').then(dataArr => {
+        if(!dataArr || dataArr.length <= 1) return;
+        const data = google.visualization.arrayToDataTable(dataArr);
+        const options = { legend: {position: 'none'}, chartArea: {width:'90%', height:'80%'}, vAxis: { format: '0' }, hAxis: { slantedText: true, slantedTextAngle: 45 }, annotations: { alwaysOutside: false, textStyle: { fontSize: 14, bold: true, color: 'black' } }, bar: {groupWidth: "75%"}, colors: ['#4A90E2'] };
+        const chart = new google.visualization.ColumnChart(document.getElementById('chart_div'));
+        chart.draw(data, options);
+      });
+  }
+
+  // --- LNCS Logic ---
+  function loadLNCSData() {
+      document.getElementById('lncs-admin-welcome').textContent = `${currentUser}님`;
+      document.getElementById('lncs-check-date').value = todayDate;
+      loadLncsAdminList();
+      showLncsSubTab('score'); 
+  }
+
+  function loadLncsChecklist() {
+      const container = document.getElementById('lncs-checklist-container');
+      container.innerHTML = '로딩 중...';
+      fetchGas('lncs_getStudentListForCheck').then(students => {
+          if(!students.length) { container.innerHTML = '명단 없음'; return; }
+          let html = '';
+          students.forEach(s => {
+              html += `<label class="cursor-pointer relative bg-white border rounded-lg p-3 hover:bg-blue-50 transition shadow-sm select-none"><input type="checkbox" class="student-checkbox hidden" value="${s.name}"><div class="flex justify-between items-center"><span class="font-bold text-gray-700">${s.number}. ${s.name}</span><span class="check-icon hidden text-blue-500 font-bold">✔</span></div></label>`;
+          });
+          container.innerHTML = html;
+      });
+  }
+
+  function loadLncsExchangeList() {
+      const container = document.getElementById('lncs-exchange-container');
+      container.innerHTML = '<p class="text-center text-gray-400">조회 중...</p>';
+      fetchGas('getPublicLNCSStatus').then(res => {
+          if(!res.success) { container.innerHTML = '오류'; return; }
+          let html = '';
+          res.data.forEach(d => {
+              const disabled = d.score < 60 ? 'disabled opacity-50 cursor-not-allowed' : '';
+              const btnColor = d.score >= 60 ? 'bg-purple-500 hover:bg-purple-600' : 'bg-gray-400';
+              html += `
+              <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg border">
+                  <div><span class="font-bold text-lg">${d.name}</span> <span class="text-sm text-gray-500">(${d.score}점)</span></div>
+                  <button onclick="requestExchange('${d.name}')" ${disabled} class="px-4 py-2 ${btnColor} text-white font-bold rounded-lg text-sm">교환 신청</button>
+              </div>`;
+          });
+          container.innerHTML = html || '<p class="text-center text-gray-400">데이터 없음</p>';
+      });
+  }
+
+  function requestExchange(name) {
+      if(!confirm(`${name} 학생의 60점을 차감하고 시면제권 1개를 부여합니까?`)) return;
+      showSpinner();
+      fetchGas('processLncsExchange', name, todayDate).then(res => {
+          hideSpinner();
+          showMessage(res.success?'success':'error', res.message);
+          if(res.success) loadLncsExchangeList(); 
+      });
+  }
+
+  function toggleAllLncs(checked) { document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = checked); }
+  function saveLNCSScoresBulk(score) {
+      const checkedBoxes = document.querySelectorAll('.student-checkbox:checked');
+      if (checkedBoxes.length === 0) return showMessage('warning', '학생을 선택하세요');
+      const scoreData = []; checkedBoxes.forEach(cb => scoreData.push({ name: cb.value, score: score }));
+      if (!confirm(`${checkedBoxes.length}명에게 ${score}점을 부여하시겠습니까?`)) return;
+      showSpinner();
+      fetchGas('lncs_saveDailyScores', document.getElementById('lncs-check-date').value, scoreData).then(res => {
+          hideSpinner(); if(res.success) { showMessage('success', '부여 완료'); toggleAllLncs(false); } else showMessage('error', '실패');
+      });
+  }
+
+  // --- Admin Logic ---
+  function addAdmin(sys) {
+      const name = document.getElementById(`new-${sys.toLowerCase()}-admin-name`).value;
+      const pass = document.getElementById(`new-${sys.toLowerCase()}-admin-pass`).value;
+      if(!name || !pass) return showMessage('warning', '정보 입력');
+      if(!confirm('추가?')) return;
+      fetchGas('manageAdmin', 'ADD', name, pass, sys).then(res => {
+          showMessage(res.success?'success':'error', res.message);
+          if(res.success) sys === 'PFPS' ? loadPfpsAdminList() : loadLncsAdminList();
+      });
+  }
+  
+  function deleteAdmin(sys, name) {
+      if(!confirm(`${name} 삭제?`)) return;
+      fetchGas('manageAdmin', 'DELETE', name, null, sys).then(res => {
+          showMessage(res.success?'success':'error', res.message);
+          if(res.success) sys === 'PFPS' ? loadPfpsAdminList() : loadLncsAdminList();
+      });
+  }
+  
+  function loadPfpsAdminList() { loadAdminList('PFPS', 'pfps-admin-list'); }
+  function loadLncsAdminList() { loadAdminList('LNCS', 'lncs-admin-list'); }
+  function loadAdminList(sys, elementId) {
+      fetchGas('getAdminList', sys).then(list => {
+          const ul = document.getElementById(elementId);
+          ul.innerHTML = '';
+          list.forEach(adm => {
+              if (adm.name === '태혁') return;
+              const li = document.createElement('li');
+              li.className = 'flex justify-between items-center bg-gray-50 p-2 rounded';
+              li.innerHTML = `<span>${adm.name} (${adm.pass})</span> <button onclick="deleteAdmin('${sys}', '${adm.name}')" class="text-red-500 font-bold text-sm">삭제</button>`;
+              ul.appendChild(li);
+          });
+      });
+  }
+
+  function loadPFPSAdminData() {
+      document.getElementById('pfps-admin-welcome').textContent = `${currentUser}님`;
+      document.getElementById('grant-date').value = todayDate;
+      loadPfpsAdminList();
+      fetchGas('getPassStatus', currentUser).then(res => { if(res.status === 'Success') renderPfpsCheckboxes(res.students); });
+  }
+  
+  function renderPfpsCheckboxes(students) {
+      const gList = document.getElementById('individual-grant-list');
+      const uList = document.getElementById('use-student-list-container');
+      let gHtml = '', uHtml = '<table class="w-full text-left"><tbody>';
+      students.forEach(s => {
+          gHtml += `<label class="flex items-center space-x-2"><input type="checkbox" name="grant-student" value="${s.name}" class="h-5 w-5 rounded"><span>${s.name}</span></label>`;
+          uHtml += `<tr class="border-b"><td class="p-2"><label class="flex items-center w-full cursor-pointer"><input type="checkbox" name="use-student" value="${s.name}" class="h-5 w-5 text-red-500" ${s.remaining===0?'disabled':''}><span class="ml-2 font-bold">${s.name}</span></label></td><td class="text-right"><span class="bg-gray-100 px-2 rounded-full text-sm font-bold">${s.remaining}개</span></td></tr>`;
+      });
+      gList.innerHTML = gHtml; uList.innerHTML = uHtml + '</tbody></table>';
+  }
+  
+  function toggleIndividualGrant() { document.getElementById('individual-grant-list').classList.toggle('hidden'); document.getElementById('btn-indiv-grant').classList.toggle('hidden'); }
+  
+  function processGrant(type) {
+      const dt = document.getElementById('grant-date').value;
+      let names = [];
+      if(type==='all') document.querySelectorAll('input[name="grant-student"]').forEach(c=>names.push(c.value));
+      else document.querySelectorAll('input[name="grant-student"]:checked').forEach(c=>names.push(c.value));
+      if(!names.length || !dt) return showMessage('warning', '확인 필요');
+      if(!confirm('부여?')) return;
+      showSpinner();
+      fetchGas('grantPasses', names, dt).then(r=>{hideSpinner(); showMessage(r.success?'success':'error', r.message); if(r.success) loadPFPSAdminData();});
+  }
+  
+  function processUse() {
+      let names = [];
+      document.querySelectorAll('input[name="use-student"]:checked').forEach(c=>names.push(c.value));
+      if(!names.length) return showMessage('warning', '선택 필요');
+      if(!confirm('사용?')) return;
+      showSpinner();
+      fetchGas('usePass', names, currentUser).then(r=>{hideSpinner(); showMessage(r.success?'success':'error', r.message); if(r.success) loadPFPSAdminData();});
+  }
+
+  function showLoginModal(sys) {
+    document.getElementById('login-modal').classList.remove('hidden');
+    document.getElementById('login-system').value = sys;
+    document.getElementById('login-modal-title').textContent = (sys==='PFPS'?'👑 PFPS':(sys==='LNCS'?'🔗 LNCS':'')) + ' 로그인';
+  }
+  function hideLoginModal() { document.getElementById('login-modal').classList.add('hidden'); }
+  
+  function handleLoginAttempt() {
+    const nm = document.getElementById('login-name').value.trim();
+    const pw = document.getElementById('login-password').value;
+    const sys = document.getElementById('login-system').value;
+    if(!nm || !pw) return showMessage('warning', '정보 입력');
+    showSpinner();
+    
+    fetchGas('handleLogin', nm, pw, sys).then(res => {
+        hideSpinner();
+        if(res.success) {
+            currentUser = res.name;
+            navigate(sys === 'PFPS' ? 'pfps-admin' : 'lncs-admin');
+            showMessage('success', '환영합니다!'); hideLoginModal();
+        } else showMessage('error', res.message);
+    });
+  }
+
+  function switchStatusTab(t) {
+      document.getElementById('tab-btn-pfps').className = `flex-1 py-3 text-lg font-bold rounded-xl ${t==='pfps'?'bg-blue-500 text-white':'bg-gray-100 text-gray-500'}`;
+      document.getElementById('tab-btn-lncs').className = `flex-1 py-3 text-lg font-bold rounded-xl ${t==='lncs'?'bg-purple-500 text-white':'bg-gray-100 text-gray-500'}`;
+      document.getElementById('status-content-pfps').style.display = t==='pfps'?'block':'none';
+      document.getElementById('status-content-lncs').style.display = t==='lncs'?'block':'none';
+      if(t==='lncs') loadPublicLNCSData();
+  }
+  
+  function showPfpsSubTab(t) {
+      document.getElementById('pfps-tab-grant').style.display = t==='grant'?'block':'none';
+      document.getElementById('pfps-tab-admin').style.display = t==='admin'?'block':'none';
+  }
+  
+  function showLncsSubTab(t) {
+      const tabs = ['score', 'exchange', 'admin'];
+      tabs.forEach(tab => document.getElementById(`lncs-tab-${tab}`).style.display = (t === tab) ? 'block' : 'none');
+      if(t === 'score') loadLncsChecklist();
+      if(t === 'exchange') loadLncsExchangeList();
+  }
+
+  function loadAllStatusData() {
+      fetchGas('getPassStatus').then(res => {
+          const c = document.getElementById('status-table-container');
+          let html = `<table class="w-full"><thead class="bg-blue-50 text-blue-800"><tr><th class="p-3 text-left">이름</th><th class="p-3 text-center">개수</th></tr></thead><tbody>`;
+          res.students.forEach(s => {
+              let display = s.remaining === 0 ? '❌' : '🔵'.repeat(Math.min(s.remaining, 5)) + (s.remaining > 5 ? `<span class="font-bold text-blue-600">+${s.remaining-5}</span>` : '');
+              html += `<tr class="border-b"><td class="p-3 font-bold text-xl">${s.name}</td><td class="p-3 text-center text-lg">${display}</td></tr>`;
+          });
+          c.innerHTML = html + '</tbody></table>';
+      });
+      loadPublicLNCSData();
+  }
+  
+  function loadPublicLNCSData() {
+      fetchGas('getPublicLNCSStatus').then(res => {
+          const c = document.getElementById('lncs-public-table-container');
+          let html = `<table class="w-full"><thead class="bg-purple-50 text-purple-800"><tr><th class="p-3 text-left">이름</th><th class="p-3 text-center">점수</th><th class="p-3 text-center">가능</th></tr></thead><tbody>`;
+          res.data.forEach(d => html += `<tr class="border-b"><td class="p-3 font-bold">${d.name}</td><td class="p-3 text-center font-bold text-purple-600">${d.score}</td><td class="p-3 text-center"><span class="bg-purple-100 text-purple-800 px-2 rounded-full text-xs">${d.exchangeable}</span></td></tr>`);
+          c.innerHTML = html + '</tbody></table>';
+      });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => navigate('home'));
+</script>
+</body>
+</html>
